@@ -1,0 +1,95 @@
+{
+  "exportedAt": "2026-10-14T09:10:34.827Z",
+  "threads": [
+    {
+      "id": "01a1299c-c495-7be0-b8c4-9ed5d84162ed",
+      "title": "二维与三维随机游走",
+      "transcript": "chats/random-walk.md",
+      "messages": 17
+    },
+    {
+      "id": "01a12aa9-78c9-7720-ba25-577baa86a03d",
+      "title": "鸟群动画与涌现仿真",
+      "transcript": "chats/flocking.md",
+      "messages": 11
+    }
+  ],
+  "files": [
+    {
+      "file": ".gitattributes",
+      "bytes": 94,
+      "sha256": "64435cc333093a9c07729cb91c7b5749d1026684b06c4febfba364c688a50a8f"
+    },
+    {
+      "file": ".gitignore",
+      "bytes": 20,
+      "sha256": "2bdfdb216230559f36faf46907142b8afd478401150f810e1ddaf9a4fdcc656c"
+    },
+    {
+      "file": "chats/flocking.md",
+      "bytes": 2713,
+      "sha256": "5a4b7532a2dd56dd850d4ccecb14bb623acc05f59835ecda20cf1c1e13341d9c"
+    },
+    {
+      "file": "chats/random-walk.md",
+      "bytes": 3874,
+      "sha256": "b8a0ec56f7122c14d5dfac56519a200be700308fd50caf07a695327b5e2da2ea"
+    },
+    {
+      "file": "flocking/鸟群动画.html",
+      "bytes": 19357,
+      "sha256": "2a17aab0a8714dea60b52f0e90181df81204f99b76edf924abd11b384f86c728"
+    },
+    {
+      "file": "flocking/鸟群动画.mp4",
+      "bytes": 13135423,
+      "sha256": "169970e8a7a84ae8f7072bdbd45e97f8b02f76ffc04f429a51fbb8c7469f0f7a"
+    },
+    {
+      "file": "flocking/鸟群动画预览.gif",
+      "bytes": 5364087,
+      "sha256": "e564f80a4800327e8deb5a377b2c7f494d4f71715b63ea31a8772d0ec7d28823"
+    },
+    {
+      "file": "flocking/鸟群动画预览.png",
+      "bytes": 296589,
+      "sha256": "0ba1677506358bbb9ac2168b3c063fffcc71352ece1675bf6e287e6707b4b81c"
+    },
+    {
+      "file": "flocking/鸟群涌现.html",
+      "bytes": 19357,
+      "sha256": "2a17aab0a8714dea60b52f0e90181df81204f99b76edf924abd11b384f86c728"
+    },
+    {
+      "file": "flocking/鸟群涌现_演示.mp4",
+      "bytes": 1708049,
+      "sha256": "434afdd61f38f3c09c3823b23dca0a4745cfcb6f6f607184d9f818f461fbd425"
+    },
+    {
+      "file": "flocking/鸟群涌现_预览.gif",
+      "bytes": 6554496,
+      "sha256": "381ebabb8505579cb82e0767909ac2770353f3a00027e4217961e3124094172a"
+    },
+    {
+      "file": "random-walk/random-walk.gif",
+      "bytes": 3576212,
+      "sha256": "ab5bff21772bc0801c406eac7620802f0e82992d628453cda3d3692590e2587e"
+    },
+    {
+      "file": "random-walk/random-walk.html",
+      "bytes": 15553,
+      "sha256": "afd051002702e6b09f474cd6f04bcafcb4a4805fca678f81356d316f5fa5a767"
+    },
+    {
+      "file": "README.md",
+      "bytes": 1896,
+      "sha256": "0039c4e2f42a755b8157864a5f60d68b5070cd4503ffcdb3d8770a6a3bf39dc7"
+    }
+  ],
+  "restoredFiles": [
+    {
+      "file": "random-walk/random-walk.html",
+      "reason": "原输出文件缺失，使用最后版本 random-walk-precision.html 副本恢复。"
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>没有领头的 · 鸟群涌现</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#03070a;color:#cbd3de;font:13px system-ui,"Microsoft YaHei",sans-serif;overflow:hidden}.stage{position:fixed;inset:0;display:grid;place-items:center}canvas{display:block;width:min(100vw,177.77778vh);height:min(56.25vw,100vh);touch-action:manipulation;cursor:crosshair}button,select{font:inherit;background:#ffffff08;color:#d1dbe7;border:1px solid #ffffff18;border-radius:8px;padding:8px 11px;cursor:pointer}button:hover,select:hover{background:#ffffff14}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #90bdce;outline-offset:4px}label{display:flex;gap:5px;align-items:center;white-space:nowrap}input{accent-color:#95b6c3}input[type=range]{width:82px}#panel{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:min(1100px,96vw);padding:13px 17px;background:#101821ec;border:1px solid #ffffff16;border-radius:14px;backdrop-filter:blur(15px);transition:opacity .5s}.row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}.status{display:flex;justify-content:space-between;gap:8px;color:#6e8294;font-size:11px;margin-top:11px}.status span:last-child{font-variant-numeric:tabular-nums}#panel.hide{opacity:0;pointer-events:none}#reveal{position:fixed;bottom:12px;right:12px;font-size:11px;opacity:.5;border:0;background:transparent}dialog{width:min(500px,92vw);padding:28px;border:1px solid #ffffff20;border-radius:18px;background:#101821;color:#cbd3de;line-height:1.9}dialog::backdrop{background:#0009}h2{font:23px "SimSun",serif;font-weight:400;margin:0 0 15px}dialog p{color:#a4b1c1}dialog small{color:#73869a}@media(max-width:720px){#panel{bottom:14px;padding:12px;font-size:11px}.row{gap:9px}input[type=range]{width:58px}.status{font-size:10px}button,select{padding:7px 9px}}
+</style></head><body>
+<div class="stage"><canvas id="scene" aria-label="持续运行的三维鸟群涌现仿真"></canvas></div>
+<div id="panel"><div class="row">
+<button id="play" title="空格键暂停或继续">暂停</button><button id="reset">重新开始</button>
+<label>鸟数 <select id="count" aria-label="鸟的数量，更改后重新开始"><option value="1200">1,200</option><option value="2400">2,400</option><option value="3200" selected>3,200</option><option value="4200">4,200</option></select></label>
+<label>避碰 <input id="separation" type="range" min=".2" max="2.2" step=".05" value="1" aria-label="避碰强度"></label>
+<label>对齐 <input id="alignment" type="range" min="0" max="2" step=".05" value="1" aria-label="方向对齐强度"></label>
+<label>聚拢 <input id="cohesion" type="range" min="0" max="2" step=".05" value="1" aria-label="局部聚拢强度"></label>
+<label><input id="predator" type="checkbox">隼</label><label><input id="neighbors" type="checkbox">观察邻居</label>
+<button id="rules">规则</button><button id="full">全屏</button></div>
+<div class="status"><span id="hint">点击画面投放局部扰动 · 空格暂停 · H 显示控制</span><span id="telemetry">运行 00:00 · 3,200 只</span></div></div>
+<button id="reveal" title="显示控制面板">控制 ↗</button>
+<dialog id="about"><h2>队形从局部互动中形成</h2><p>没有领头鸟，也没有预设的队形或飞行路线。每只鸟只响应感知范围内最近的最多 7 只邻居：</p><p>避碰：与太近的邻居保持距离。<br>对齐：逐渐接近邻居的平均飞行方向。<br>聚拢：向邻居所在的局部位置靠近。</p><p>每只鸟还带有独立的微小随机扰动，并避开场地边界。开启隼时，只有靠近隼的鸟直接躲避，其余变化通过邻居互动传播。</p><small>仿真逐步演化，可以持续运行；暂停会保留当前状态。更改鸟数或点击“重新开始”会生成新的初始状态。</small><p><button id="close">继续观察</button></p></dialog>
+<script>/* Local Boids dynamics. No flock centroid, prescribed path, or periodic reset. */
+(function(root){
+ 'use strict';
+ const K=7,TAU=Math.PI*2;
+ function rng(seed){return ()=>{seed=seed+0x6d2b79f5|0;let t=Math.imul(seed^seed>>>15,1|seed);t^=t+Math.imul(t^t>>>7,61|t);return ((t^t>>>14)>>>0)/4294967296;};}
+ class Flock {
+  constructor(count=2400,seed=Date.now(),options={}){
+   this.n=count;this.rand=rng(seed);this.time=0;this.steps=0;
+   this.params=Object.assign({vision:85,separation:18,alignment:2.7,cohesion:1.15,repulsion:210,noise:12,minSpeed:62,maxSpeed:116,maxForce:180,walls:true},options);
+   this.radii=[850,310,430];this.cell=this.params.vision;
+   this.gx=Math.ceil(this.radii[0]*2/this.cell)+3;this.gy=Math.ceil(this.radii[1]*2/this.cell)+3;this.gz=Math.ceil(this.radii[2]*2/this.cell)+3;
+   this.head=new Int32Array(this.gx*this.gy*this.gz);this.next=new Int32Array(count);
+   for(const name of ['x','y','z','vx','vy','vz','nx','ny','nz','nvx','nvy','nvz','noiseX','noiseY','noiseZ','phase','size'])this[name]=new Float64Array(count);
+   this.neighbors=new Int32Array(count*K);this.neighborCount=new Uint8Array(count);this.shade=new Uint8Array(count);
+   this.predator=null;this.pulses=[];
+   const gauss=()=>Math.sqrt(-2*Math.log(Math.max(this.rand(),1e-8)))*Math.cos(TAU*this.rand());
+   for(let i=0;i<count;i++){
+    this.x[i]=gauss()*220;this.y[i]=gauss()*58;this.z[i]=gauss()*82;
+    const q=this.x[i]**2/850**2+this.y[i]**2/310**2+this.z[i]**2/430**2;
+    if(q>.72){const s=Math.sqrt(.72/q);this.x[i]*=s;this.y[i]*=s;this.z[i]*=s;}
+    // Independent random headings: initial consensus is not supplied.
+    const a=TAU*this.rand(),h=this.rand()*2-1,r=Math.sqrt(1-h*h),speed=75+this.rand()*25;
+    this.vx[i]=Math.cos(a)*r*speed;this.vy[i]=h*speed;this.vz[i]=Math.sin(a)*r*speed;
+    this.phase[i]=TAU*this.rand();this.size[i]=.7+this.rand()*.7;this.shade[i]=Math.floor(this.rand()*6);
+   }
+  }
+  gridCoord(value,radius,max){return Math.max(0,Math.min(max-1,Math.floor((value+radius)/this.cell)+1));}
+  buildGrid(){
+   this.head.fill(-1);
+   for(let i=0;i<this.n;i++){
+    const a=this.gridCoord(this.x[i],850,this.gx),b=this.gridCoord(this.y[i],310,this.gy),c=this.gridCoord(this.z[i],430,this.gz),key=(c*this.gy+b)*this.gx+a;
+    this.next[i]=this.head[key];this.head[key]=i;
+   }
+  }
+  nearest(i,ids,distances){
+   const x=this.x[i],y=this.y[i],z=this.z[i],cx=this.gridCoord(x,850,this.gx),cy=this.gridCoord(y,310,this.gy),cz=this.gridCoord(z,430,this.gz);
+   const radius2=this.params.vision**2;let count=0,worst=0,cutoff=radius2;
+   for(let c=Math.max(0,cz-1);c<=Math.min(this.gz-1,cz+1);c++)for(let b=Math.max(0,cy-1);b<=Math.min(this.gy-1,cy+1);b++)for(let a=Math.max(0,cx-1);a<=Math.min(this.gx-1,cx+1);a++){
+    let j=this.head[(c*this.gy+b)*this.gx+a];
+    while(j!==-1){
+     if(j!==i){const dx=this.x[j]-x,dy=this.y[j]-y,dz=this.z[j]-z,d=dx*dx+dy*dy+dz*dz;
+      if(d<cutoff){
+       if(count<K){ids[count]=j;distances[count]=d;count++;}else {ids[worst]=j;distances[worst]=d;}
+       if(count===K){worst=0;for(let k=1;k<K;k++)if(distances[k]>distances[worst])worst=k;cutoff=distances[worst];}
+      }
+     }j=this.next[j];
+    }
+   }
+   return count;
+  }
+  wallForce(x,y,z,vx,vy,vz){
+   if(!this.params.walls)return [0,0,0];
+   const q=x*x/850**2+y*y/310**2+z*z/430**2;
+   if(q<.55)return [0,0,0];
+   let ax=x/850**2,ay=y/310**2,az=z/430**2;const norm=Math.hypot(ax,ay,az)||1;ax/=norm;ay/=norm;az/=norm;
+   const outward=Math.max(0,vx*ax+vy*ay+vz*az),force=(q-.55)*330+outward*2;
+   return [-ax*force,-ay*force,-az*force];
+  }
+  contain(x,y,z,vx,vy,vz){
+   if(!this.params.walls)return [x,y,z,vx,vy,vz];
+   const q=x*x/850**2+y*y/310**2+z*z/430**2;
+   if(q>1.12){
+    const s=Math.sqrt(1.12/q);x*=s;y*=s;z*=s;
+    let a=x/850**2,b=y/310**2,c=z/430**2;const n=Math.hypot(a,b,c);a/=n;b/=n;c/=n;
+    const out=vx*a+vy*b+vz*c;if(out>0){vx-=1.65*out*a;vy-=1.65*out*b;vz-=1.65*out*c;}
+   }
+   return [x,y,z,vx,vy,vz];
+  }
+  setPredator(on){this.predator=on?{x:-650,y:-140,z:50,vx:145,vy:25,vz:0,target:-1,retarget:0}:null;}
+  disturb(x,y,z=0){if(this.pulses.length>=8)this.pulses.shift();this.pulses.push({x,y,z,age:0});}
+  updatePredator(dt){
+   const p=this.predator;if(!p)return;p.retarget-=dt;
+   if(p.retarget<=0){let best=Infinity;p.target=0;for(let i=0;i<this.n;i++){const d=(p.x-this.x[i])**2+(p.y-this.y[i])**2+(p.z-this.z[i])**2;if(d<best){best=d;p.target=i;}}p.retarget=.4;}
+   const i=p.target,dx=this.x[i]-p.x,dy=this.y[i]-p.y,dz=this.z[i]-p.z,d=Math.hypot(dx,dy,dz)||1;
+   let ax=(dx/d*172-p.vx)*2.2,ay=(dy/d*172-p.vy)*2.2,az=(dz/d*172-p.vz)*2.2;const force=Math.hypot(ax,ay,az),limit=Math.min(1,260/(force||1));
+   p.vx+=ax*limit*dt;p.vy+=ay*limit*dt;p.vz+=az*limit*dt;
+   [p.x,p.y,p.z,p.vx,p.vy,p.vz]=this.contain(p.x+p.vx*dt,p.y+p.vy*dt,p.z+p.vz*dt,p.vx,p.vy,p.vz);
+  }
+  step(dt=1/30){
+   this.buildGrid();this.updatePredator(dt);
+   const ids=new Int32Array(K),distances=new Float64Array(K),p=this.params;
+   for(let i=0;i<this.n;i++){
+    const x=this.x[i],y=this.y[i],z=this.z[i],vx=this.vx[i],vy=this.vy[i],vz=this.vz[i];
+    const count=this.nearest(i,ids,distances);this.neighborCount[i]=count;
+    let cx=0,cy=0,cz=0,avx=0,avy=0,avz=0,sx=0,sy=0,sz=0,close=0;
+    for(let k=0;k<count;k++){
+     const j=ids[k],dx=this.x[j]-x,dy=this.y[j]-y,dz=this.z[j]-z,d=Math.sqrt(distances[k]);this.neighbors[i*K+k]=j;
+     cx+=dx;cy+=dy;cz+=dz;avx+=this.vx[j];avy+=this.vy[j];avz+=this.vz[j];
+     if(d<p.separation){
+      if(d>1e-5){const f=(1-d/p.separation)/(d||1);sx-=dx*f;sy-=dy*f;sz-=dz*f;}
+      else {const sign=i<j?-1:1;sx+=sign;sy+=sign*.37;sz-=sign*.61;}
+      close++;
+     }
+    }
+    let ax=0,ay=0,az=0;
+    if(count){const s=1/count;ax=(avx*s-vx)*p.alignment+cx*s*p.cohesion;ay=(avy*s-vy)*p.alignment+cy*s*p.cohesion;az=(avz*s-vz)*p.alignment+cz*s*p.cohesion;}
+    if(close){ax+=sx/close*p.repulsion;ay+=sy/close*p.repulsion;az+=sz/close*p.repulsion;}
+    // Independent, mean-zero agitation; it never supplies a common direction.
+    this.noiseX[i]=this.noiseX[i]*.94+(this.rand()*2-1)*.35;
+    this.noiseY[i]=this.noiseY[i]*.94+(this.rand()*2-1)*.35;
+    this.noiseZ[i]=this.noiseZ[i]*.94+(this.rand()*2-1)*.35;
+    ax+=this.noiseX[i]*p.noise;ay+=this.noiseY[i]*p.noise;az+=this.noiseZ[i]*p.noise;
+    const wall=this.wallForce(x,y,z,vx,vy,vz);ax+=wall[0];ay+=wall[1];az+=wall[2];
+    if(this.predator){const h=this.predator,dx=x-h.x,dy=y-h.y,dz=z-h.z,d=Math.hypot(dx,dy,dz);if(d<170&&d>1e-4){const f=(1-d/170)**2*650/d;ax+=dx*f;ay+=dy*f;az+=dz*f;}}
+    for(const pulse of this.pulses){const dx=x-pulse.x,dy=y-pulse.y,dz=z-pulse.z,d=Math.hypot(dx,dy,dz);if(d<210&&d>1e-4){const f=(1-d/210)**2*Math.exp(-pulse.age*.85)*700/d;ax+=dx*f;ay+=dy*f;az+=dz*f;}}
+    const force=Math.hypot(ax,ay,az),f=Math.min(1,p.maxForce/(force||1));let ux=vx+ax*f*dt,uy=vy+ay*f*dt,uz=vz+az*f*dt;
+    let speed=Math.hypot(ux,uy,uz);if(speed<1e-7){ux=vx||1;uy=vy;uz=vz;speed=Math.hypot(ux,uy,uz);}
+    const s=Math.max(p.minSpeed,Math.min(p.maxSpeed,speed))/speed;ux*=s;uy*=s;uz*=s;
+    const state=this.contain(x+ux*dt,y+uy*dt,z+uz*dt,ux,uy,uz);
+    this.nx[i]=state[0];this.ny[i]=state[1];this.nz[i]=state[2];this.nvx[i]=state[3];this.nvy[i]=state[4];this.nvz[i]=state[5];
+   }
+   for(const [a,b] of [['x','nx'],['y','ny'],['z','nz'],['vx','nvx'],['vy','nvy'],['vz','nvz']]){const tmp=this[a];this[a]=this[b];this[b]=tmp;}
+   // State advances cumulatively. There is no duration, replay, or modulo clock.
+   this.time+=dt;this.steps++;
+   for(let k=this.pulses.length-1;k>=0;k--){this.pulses[k].age+=dt;if(this.pulses[k].age>5)this.pulses.splice(k,1);}
+  }
+  metrics(){let vx=0,vy=0,vz=0,speed=0,neighbors=0,q=0;
+   for(let i=0;i<this.n;i++){vx+=this.vx[i];vy+=this.vy[i];vz+=this.vz[i];speed+=Math.hypot(this.vx[i],this.vy[i],this.vz[i]);neighbors+=this.neighborCount[i];q=Math.max(q,this.x[i]**2/850**2+this.y[i]**2/310**2+this.z[i]**2/430**2);}
+   return {time:this.time,steps:this.steps,count:this.n,alignment:Math.hypot(vx,vy,vz)/(speed||1),neighbors:neighbors/this.n,maxBoundary:q};
+  }
+ }
+ function project(x,y,z){const scale=2100/(2100+z),cx=x*.987+z*.16,cy=y-z*.08;return {x:960+cx*scale,y:540+cy*scale,scale};}
+ function birdGeometry(flock){const groups=Array.from({length:6},()=>[]);
+  for(let i=0;i<flock.n;i++){
+   const a=project(flock.x[i],flock.y[i],flock.z[i]),b=project(flock.x[i]+flock.vx[i]*.03,flock.y[i]+flock.vy[i]*.03,flock.z[i]+flock.vz[i]*.03);
+   let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d<.01){dx=1;dy=0;d=1;}dx/=d;dy/=d;
+   const s=flock.size[i]*a.scale,flap=.4+.35*Math.sin(flock.time*17+flock.phase[i]);
+   const shade=Math.max(0,Math.min(5,flock.shade[i]+(flock.z[i]<-80?1:flock.z[i]>140?-1:0)));
+   groups[shade].push([a.x-dx*s*2-dy*s*flap,a.y-dy*s*2+dx*s*flap,a.x+dx*s*.8,a.y+dy*s*.8,a.x-dx*s*2+dy*s*flap,a.y-dy*s*2-dx*s*flap]);
+  }return groups;
+ }
+ const api={Flock,project,birdGeometry,K};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.FlockSim=api;
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+const {Flock,project,birdGeometry}=FlockSim;
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d'),panel=document.getElementById('panel');
+const byId=id=>document.getElementById(id);let sim=new Flock(3200),playing=true,last=null,accumulator=0,selected=0,showNeighbors=false,hideTimer,lastInfo=0,frames=0,fps=0;
+const dt=1/30,logicalWidth=1920,logicalHeight=1080;let renderScale=1,background;
+function resize(){const w=Math.min(innerWidth,innerHeight*16/9);renderScale=Math.min(1920,Math.round(w*Math.min(devicePixelRatio||1,1.5)))/1920;canvas.width=Math.max(1,Math.round(1920*renderScale));canvas.height=Math.max(1,Math.round(1080*renderScale));ctx.setTransform(renderScale,0,0,renderScale,0,0);background=ctx.createRadialGradient(960,540,15,960,540,850);background.addColorStop(0,'#111c28');background.addColorStop(.5,'#080f18');background.addColorStop(1,'#03070a');}
+function applyParams(){sim.params.repulsion=210*+byId('separation').value;sim.params.alignment=2.7*+byId('alignment').value;sim.params.cohesion=1.15*+byId('cohesion').value;}
+function restart(){sim=new Flock(+byId('count').value);applyParams();if(byId('predator').checked)sim.setPredator(true);accumulator=0;selected=0;showPanel();}
+function chooseBird(px=960,py=540){let best=Infinity;for(let i=0;i<sim.n;i++){const p=project(sim.x[i],sim.y[i],sim.z[i]),d=(p.x-px)**2+(p.y-py)**2;if(d<best){best=d;selected=i;}}}
+function draw(){
+ ctx.fillStyle=background;ctx.fillRect(0,0,1920,1080);const groups=birdGeometry(sim);ctx.lineWidth=1.04;ctx.lineCap='round';
+ groups.forEach((items,i)=>{ctx.strokeStyle=['#323d4b','#485567','#627488','#8294a8','#a2b2c4','#d0dae5'][i];ctx.beginPath();for(const a of items){ctx.moveTo(a[0],a[1]);ctx.lineTo(a[2],a[3]);ctx.lineTo(a[4],a[5]);}ctx.stroke();});
+ if(showNeighbors){const i=selected%sim.n,a=project(sim.x[i],sim.y[i],sim.z[i]);ctx.strokeStyle='#73b9bd77';ctx.lineWidth=1;
+  for(let k=0;k<sim.neighborCount[i];k++){const j=sim.neighbors[i*7+k],b=project(sim.x[j],sim.y[j],sim.z[j]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.stroke();}
+  ctx.strokeStyle='#e4bf73';ctx.beginPath();ctx.arc(a.x,a.y,6,0,Math.PI*2);ctx.stroke();
+ }
+ if(sim.predator){const p=sim.predator,a=project(p.x,p.y,p.z),b=project(p.x-p.vx*.3,p.y-p.vy*.3,p.z-p.vz*.3);let dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;ctx.strokeStyle='#d87888';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(a.x,a.y);ctx.moveTo(a.x-dx*14-dy*6,a.y-dy*14+dx*6);ctx.lineTo(a.x,a.y);ctx.lineTo(a.x-dx*14+dy*6,a.y-dy*14-dx*6);ctx.stroke();}
+ for(const p of sim.pulses){const a=project(p.x,p.y,p.z);ctx.strokeStyle='rgba(107,182,203,'+Math.max(0,.35*(1-p.age/2))+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(a.x,a.y,Math.min(220,p.age*85+8)*a.scale,0,Math.PI*2);ctx.stroke();}
+ ctx.textAlign='center';ctx.fillStyle='#dedfdc';ctx.font='31px SimSun,serif';ctx.fillText('没 有 领 头 的',960,88);ctx.fillStyle='#9e946f';ctx.font='9px Georgia,serif';ctx.fillText('L O C A L   R U L E S   ·   E M E R G E N T   F L O C K I N G',960,117);ctx.fillStyle='#949fa9';ctx.font='17px SimSun,serif';ctx.fillText('每只鸟只响应附近最多 7 只邻居',960,978);ctx.fillStyle='#586b7c';ctx.font='11px Georgia,serif';ctx.fillText('Separation · Alignment · Cohesion',960,1004);ctx.textAlign='left';
+}
+function timeLabel(time){const s=Math.floor(time),h=Math.floor(s/3600),m=Math.floor(s/60)%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function updateInfo(now){if(now-lastInfo>700){fps=Math.round(frames*1000/(now-lastInfo));frames=0;lastInfo=now;byId('telemetry').textContent='运行 '+timeLabel(sim.time)+' · '+sim.n.toLocaleString()+' 只 · '+fps+' fps';}}
+function tick(now){const elapsed=last===null?0:Math.max(0,Math.min((now-last)/1000,.12));last=now;
+ if(playing&&!document.hidden){accumulator+=elapsed;let iterations=0;while(accumulator>=dt&&iterations<4){sim.step(dt);accumulator-=dt;iterations++;}}
+ draw();frames++;updateInfo(now);requestAnimationFrame(tick);
+}
+function togglePlay(){playing=!playing;byId('play').textContent=playing?'暂停':'继续';byId('play').setAttribute('aria-pressed',String(!playing));accumulator=0;showPanel();}
+function showPanel(){panel.classList.remove('hide');clearTimeout(hideTimer);hideTimer=setTimeout(()=>{if(!panel.matches(':hover')&&!panel.contains(document.activeElement))panel.classList.add('hide');},5000);}
+byId('play').onclick=togglePlay;byId('reset').onclick=restart;byId('count').onchange=restart;for(const id of ['separation','alignment','cohesion'])byId(id).oninput=applyParams;
+byId('predator').onchange=e=>sim.setPredator(e.target.checked);byId('neighbors').onchange=e=>{showNeighbors=e.target.checked;if(showNeighbors)chooseBird();byId('hint').textContent=showNeighbors?'点击选择一只鸟，显示它当前响应的邻居':'点击画面投放局部扰动 · 空格暂停 · H 显示控制';};
+byId('full').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch{byId('hint').textContent='当前浏览器未允许全屏，可使用 F11。';}};
+byId('rules').onclick=()=>byId('about').showModal();byId('close').onclick=()=>byId('about').close();byId('reveal').onclick=showPanel;
+canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*1920,y=(e.clientY-r.top)/r.height*1080;if(showNeighbors)chooseBird(x,y);else sim.disturb((x-960)/.987,y-540,0);});
+document.addEventListener('pointermove',showPanel);document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button')||byId('about').open)return;if(e.code==='Space'){e.preventDefault();togglePlay();}if(e.code==='KeyH')showPanel();});document.addEventListener('visibilitychange',()=>{last=null;accumulator=0;});window.addEventListener('resize',resize);
+// Read-only access to diagnostics and explicit manual stepping, useful for review.
+window.flockDemo={get simulation(){return sim;},get playing(){return playing;},metrics:()=>sim.metrics(),step(count=1){for(let i=0;i<count;i++)sim.step(dt);draw();},draw};
+resize();showPanel();requestAnimationFrame(tick);
+</script></body></html>
