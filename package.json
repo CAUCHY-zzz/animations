@@ -1,0 +1,12 @@
+{
+  "name": "animations",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive random walk and local-rule flocking visualizations",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node scripts/test-simulations.mjs"
+  }
+}

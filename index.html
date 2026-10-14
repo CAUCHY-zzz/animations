@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="探索二维与三维随机游走，以及由局部规则形成的鸟群涌现。两款可交互、可离线运行的 Canvas 动画。">
+  <title>Animations · 随机与涌现</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, "Microsoft YaHei", sans-serif; background: #09121c; color: #e8eff6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+    a:focus-visible { outline: 3px solid #80d8ce; outline-offset: 6px; }
+    .shell { width: min(1040px, calc(100% - 48px)); margin: auto; }
+    header { padding: 30px 0; border-bottom: 1px solid #ffffff12; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+    .brand { letter-spacing: .16em; font-size: 12px; font-weight: 650; }
+    header a { font-size: 12px; color: #a1b4c5; }
+    main { padding: 66px 0 54px; }
+    .eyebrow { color: #82a0b7; font-size: 12px; letter-spacing: .14em; }
+    h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 550; letter-spacing: -.04em; margin: 15px 0 18px; }
+    .intro { max-width: 630px; color: #9fb1c1; line-height: 1.9; margin: 0 0 40px; font-size: 15px; }
+    .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .card { --accent: #72dbcc; display: flex; flex-direction: column; border: 1px solid #ffffff16; border-radius: 18px; overflow: hidden; background: #101c29; transition: border-color .2s, transform .2s; }
+    .card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .flock { --accent: #b4bbef; }
+    .preview { display: block; width: 100%; height: 220px; background: #0d1925; border-bottom: 1px solid #ffffff0c; }
+    .content { padding: 26px; flex: 1; display: flex; flex-direction: column; }
+    .number { color: var(--accent); font: 12px ui-monospace, monospace; letter-spacing: .1em; }
+    h2 { font-size: 24px; font-weight: 550; margin: 13px 0; }
+    .content p { color: #9fb1c1; line-height: 1.85; font-size: 14px; margin: 0 0 20px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+    .tags span { border: 1px solid #ffffff12; border-radius: 5px; padding: 5px 8px; color: #a9becf; font-size: 11px; }
+    .launch { color: var(--accent); display: flex; justify-content: space-between; align-items: center; margin-top: 26px; padding-top: 18px; border-top: 1px solid #ffffff12; font-size: 14px; }
+    footer { padding: 24px 0 30px; border-top: 1px solid #ffffff12; display: flex; justify-content: space-between; gap: 12px; color: #718a9e; font-size: 12px; line-height: 1.7; }
+    @media (max-width: 680px) { .shell { width: calc(100% - 32px); } main { padding: 42px 0; } .gallery { grid-template-columns: 1fr; } .preview { height: 190px; } .content { padding: 22px; } footer { flex-direction: column; } }
+    @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header><span class="brand">ANIMATIONS</span><a href="https://github.com/CAUCHY-zzz/animations">查看源代码 ↗</a></header>
+    <main>
+      <div class="eyebrow">交互式可视化 / 02 个实验</div>
+      <h1>看见随机与涌现。</h1>
+      <p class="intro">一次随机的迈步，一群鸟的局部互动。从简单规则出发，观察轨迹如何展开、秩序如何形成。</p>
+      <div class="gallery">
+        <a class="card" href="random-walk.html" aria-label="打开二维与三维随机游走动画">
+          <svg class="preview" viewBox="0 0 460 220" aria-hidden="true">
+            <defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#203449" stroke-width=".7"/></pattern></defs>
+            <rect width="460" height="220" fill="url(#grid)"/>
+            <path d="M230 20V200M30 110H430" stroke="#456078" stroke-width="1"/>
+            <polyline points="230,110 230,90 210,90 210,70 190,70 190,90 170,90 170,110 150,110 150,90 130,90 130,70 150,70 150,50 170,50 170,30 190,30 190,50 210,50 210,70 230,70 250,70 250,90 270,90 270,70 290,70 290,90 310,90 310,110 290,110 290,130 310,130 310,150 330,150" fill="none" stroke="#72dbcc" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle cx="230" cy="110" r="4" fill="#e9b980"/><circle cx="330" cy="150" r="10" fill="#72dbcc22"/><circle cx="330" cy="150" r="4" fill="#72dbcc"/>
+          </svg>
+          <div class="content"><span class="number">01 / RANDOM WALK</span><h2>随机游走</h2><p>每一步独立选择一个方向。在二维与三维之间切换，追踪粒子的位置与不断延伸的路径。</p><div class="tags"><span>二维 / 三维</span><span>旋转与缩放</span><span>速度可调</span></div><div class="launch"><span>开始观察</span><span aria-hidden="true">↗</span></div></div>
+        </a>
+        <a class="card flock" href="鸟群涌现.html" aria-label="打开持续运行的鸟群涌现仿真">
+          <svg class="preview" viewBox="0 0 460 220" aria-hidden="true">
+            <defs><path id="bird" d="M-6 3L0-2 6 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></defs>
+            <g color="#bdc9e5"><use href="#bird" x="91" y="113"/><use href="#bird" x="110" y="91"/><use href="#bird" x="119" y="129"/><use href="#bird" x="139" y="71"/><use href="#bird" x="141" y="109"/><use href="#bird" x="147" y="148"/><use href="#bird" x="162" y="91"/><use href="#bird" x="170" y="128"/><use href="#bird" x="180" y="67"/><use href="#bird" x="188" y="151"/><use href="#bird" x="197" y="105"/><use href="#bird" x="210" y="83"/><use href="#bird" x="219" y="125"/><use href="#bird" x="226" y="162"/><use href="#bird" x="243" y="103"/><use href="#bird" x="247" y="140"/><use href="#bird" x="254" y="73"/><use href="#bird" x="270" y="119"/><use href="#bird" x="280" y="161"/><use href="#bird" x="291" y="93"/><use href="#bird" x="303" y="139"/><use href="#bird" x="318" y="115"/><use href="#bird" x="333" y="157"/><use href="#bird" x="346" y="130"/><use href="#bird" x="369" y="109"/></g>
+            <circle cx="197" cy="105" r="37" fill="none" stroke="#b4bbef33" stroke-dasharray="3 5"/>
+            <path d="M197 105L188 151M197 105L170 128M197 105L162 91M197 105L180 67M197 105L210 83M197 105L219 125M197 105L243 103" stroke="#b4bbef22"/>
+          </svg>
+          <div class="content"><span class="number">02 / EMERGENCE</span><h2>鸟群涌现</h2><p>每只鸟只观察附近的邻居。调节避碰、对齐与聚拢，看看局部互动如何形成整体队形。</p><div class="tags"><span>局部规则</span><span>持续演化</span><span>扰动与隼</span></div><div class="launch"><span>开始观察</span><span aria-hidden="true">↗</span></div></div>
+        </a>
+      </div>
+    </main>
+    <footer><span>纯 HTML / Canvas · 无需安装 · 可离线运行</span><span>进入动画后，通过浏览器返回此页。</span></footer>
+  </div>
+</body>
+</html>
